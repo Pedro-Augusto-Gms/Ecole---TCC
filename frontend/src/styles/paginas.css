@@ -1,0 +1,228 @@
+/* Dashboard */
+.grade-estatisticas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.card-estatistica {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+.card-estatistica-icone {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: var(--azul);
+  color: var(--branco);
+  box-shadow: 0 6px 14px rgba(6, 98, 216, 0.3);
+}
+.card-estatistica-rotulo {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+.card-estatistica-valor {
+  display: block;
+  font-size: 2rem;
+  line-height: 1.15;
+}
+.card-estatistica small {
+  color: var(--texto-suave);
+}
+
+.dashboard-colunas {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .dashboard-colunas {
+    grid-template-columns: 1fr;
+  }
+}
+
+.atalhos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.atalho {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.atalho:hover {
+  background: var(--azul-suave);
+  border-color: var(--azul-medio);
+  transform: translateX(3px);
+}
+.atalho > div:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.atalho span {
+  font-size: 0.86rem;
+  color: var(--texto-suave);
+}
+.atalho-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--azul-claro);
+  color: var(--azul);
+}
+.atalho-seta {
+  color: var(--azul);
+}
+
+.atividades {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.atividades li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.atividade-ponto {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--azul);
+  box-shadow: 0 0 0 4px var(--azul-claro);
+}
+.atividades small {
+  color: var(--texto-suave);
+}
+
+/* Geração de horários */
+.parametros {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 16px;
+  align-items: end;
+}
+.parametros .campo {
+  margin-bottom: 0;
+}
+.parametros-acoes {
+  display: flex;
+  gap: 10px;
+}
+.parametros-resumo {
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+@media (max-width: 900px) {
+  .parametros {
+    grid-template-columns: 1fr;
+  }
+}
+
+.quadro-horario-rolagem {
+  overflow-x: auto;
+}
+.quadro-horario {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 6px;
+  table-layout: fixed;
+}
+.quadro-horario th {
+  padding: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--branco);
+  background: var(--azul);
+  border-radius: 8px;
+}
+.quadro-horario th.quadro-periodo {
+  width: 92px;
+  color: var(--azul-escuro);
+  background: var(--azul-claro);
+}
+.quadro-horario td {
+  height: 74px;
+  padding: 0;
+  vertical-align: stretch;
+}
+.aula,
+.aula-vazia {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.aula strong {
+  font-size: 0.86rem;
+}
+.aula span {
+  font-size: 0.76rem;
+  opacity: 0.85;
+}
+.aula-vazia {
+  align-items: center;
+  background: var(--azul-suave);
+  border: 1px dashed var(--borda);
+  color: var(--texto-suave);
+}
+.aula-cor-0 {
+  background: #dbeafe;
+  color: #0b3a8a;
+  border-left: 4px solid #0662d8;
+}
+.aula-cor-1 {
+  background: #e0f2fe;
+  color: #075985;
+  border-left: 4px solid #0284c7;
+}
+.aula-cor-2 {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-left: 4px solid #4f46e5;
+}
+.aula-cor-3 {
+  background: #cffafe;
+  color: #155e75;
+  border-left: 4px solid #0891b2;
+}
+.aula-cor-4 {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-left: 4px solid #7c3aed;
+}
+.aula-cor-5 {
+  background: #dcfce7;
+  color: #166534;
+  border-left: 4px solid #16a34a;
+}

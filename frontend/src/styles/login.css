@@ -1,0 +1,131 @@
+/* Tela de login */
+.login {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 100%;
+  background: var(--branco);
+}
+
+.login-destaque {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 64px;
+  overflow: hidden;
+  color: var(--branco);
+  background: linear-gradient(145deg, #0662d8 0%, #0449a6 100%);
+}
+.login-destaque-conteudo {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+}
+.login-selo {
+  display: inline-block;
+  padding: 6px 14px;
+  margin-bottom: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.login-destaque h2 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.login-destaque p {
+  margin-top: 16px;
+  font-size: 1.02rem;
+  opacity: 0.9;
+}
+.login-beneficios {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.login-beneficios li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+}
+.login-beneficios svg {
+  flex-shrink: 0;
+  padding: 9px;
+  box-sizing: content-box;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.login-circulo {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+}
+.login-circulo-a {
+  right: -120px;
+  bottom: -120px;
+  width: 380px;
+  height: 380px;
+}
+.login-circulo-b {
+  top: -90px;
+  right: 80px;
+  width: 220px;
+  height: 220px;
+}
+
+.login-formulario-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--azul-suave);
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px;
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  box-shadow: var(--sombra-forte);
+}
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.login-card h1 {
+  font-size: 1.5rem;
+  text-align: center;
+}
+.login-subtitulo {
+  margin: 6px 0 24px;
+  color: var(--texto-suave);
+  text-align: center;
+}
+.login-card .botao-bloco {
+  margin-top: 6px;
+}
+.login-rodape {
+  display: block;
+  margin-top: 22px;
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+  .login-destaque {
+    display: none;
+  }
+  .login-formulario-area {
+    min-height: 100vh;
+  }
+}

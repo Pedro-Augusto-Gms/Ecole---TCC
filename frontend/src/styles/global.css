@@ -1,0 +1,106 @@
+/* ÉCOLE - variáveis e base */
+:root {
+  --azul: #0662d8;
+  --azul-escuro: #0449a6;
+  --azul-medio: #3b8af0;
+  --azul-claro: #e8f1fd;
+  --azul-suave: #f4f8fe;
+  --branco: #ffffff;
+
+  --texto: #14233b;
+  --texto-suave: #5b6b84;
+  --borda: #dce5f2;
+  --fundo: #f3f7fc;
+
+  --perigo: #d93b3b;
+  --perigo-claro: #fdecec;
+  --sucesso: #1b8a5a;
+  --sucesso-claro: #e6f6ee;
+  --aviso: #9a6700;
+  --aviso-claro: #fff6e0;
+
+  --raio: 12px;
+  --raio-pequeno: 8px;
+  --sombra: 0 4px 18px rgba(6, 98, 216, 0.08);
+  --sombra-forte: 0 14px 40px rgba(6, 98, 216, 0.18);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.texto-suave {
+  color: var(--texto-suave);
+}
+
+/* Logo */
+.logo-imagem {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+.logo-menu {
+  max-height: 44px;
+  width: auto;
+}
+.logo-login {
+  max-height: 64px;
+  width: auto;
+}
+.logo-texto {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--azul);
+}
+.logo-texto.logo-menu {
+  font-size: 1.6rem;
+}
+.logo-texto.logo-login {
+  font-size: 2.2rem;
+}
