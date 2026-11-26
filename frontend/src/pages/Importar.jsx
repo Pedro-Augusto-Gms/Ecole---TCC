@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiUpload, FiCpu, FiTrash2, FiCheckCircle, FiAlertTriangle, FiX, FiFileText } from 'react-icons/fi';
 import PageHeader from '../components/PageHeader.jsx';
@@ -28,11 +28,48 @@ function lerArquivo(arquivo) {
   });
 }
 
+// Fotos de celular são enormes. Reduzir para no máximo 1800 px deixa o envio e a leitura bem mais rápidos
+// sem prejudicar a letra. Se o navegador não conseguir (ex.: HEIC), envia o arquivo original.
+async function reduzirImagem(arquivo) {
+  if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) return arquivo;
+  try {
+    const imagem = await createImageBitmap(arquivo);
+    const escala = Math.min(1, 1800 / Math.max(imagem.width, imagem.height));
+    if (escala === 1 && arquivo.size < 1.5 * 1024 * 1024) {
+      imagem.close?.();
+      return arquivo;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(imagem.width * escala);
+    canvas.height = Math.round(imagem.height * escala);
+    const contexto = canvas.getContext('2d');
+    contexto.fillStyle = '#ffffff';
+    contexto.fillRect(0, 0, canvas.width, canvas.height);
+    contexto.drawImage(imagem, 0, 0, canvas.width, canvas.height);
+    imagem.close?.();
+    const blob = await new Promise((resolver) => canvas.toBlob(resolver, 'image/jpeg', 0.85));
+    return blob ? new File([blob], `${arquivo.name.replace(/\.\w+$/, '')}.jpg`, { type: 'image/jpeg' }) : arquivo;
+  } catch {
+    return arquivo;
+  }
+}
+
 export default function Importar() {
   const [arquivos, setArquivos] = useState([]);
   const [lendo, setLendo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  const [segundos, setSegundos] = useState(0);
+
+  // Contador mostrado enquanto a IA lê, para a gestão ver que o sistema está trabalhando.
+  useEffect(() => {
+    if (!lendo) {
+      setSegundos(0);
+      return undefined;
+    }
+    const relogio = setInterval(() => setSegundos((s) => s + 1), 1000);
+    return () => clearInterval(relogio);
+  }, [lendo]);
 
   const [previa, setPrevia] = useState(null); // { professores, avisos, disciplinas_existentes }
   const [aulasNovas, setAulasNovas] = useState({}); // nome normalizado -> aulas semanais
@@ -55,7 +92,7 @@ export default function Importar() {
     setResultado(null);
     setLendo(true);
     try {
-      const enviados = await Promise.all(arquivos.map(lerArquivo));
+      const enviados = await Promise.all(arquivos.map(async (arquivo) => lerArquivo(await reduzirImagem(arquivo))));
       const { data } = await api.post('/importacao/ler', { arquivos: enviados });
       setPrevia(data);
       setAulasNovas({});
@@ -186,9 +223,15 @@ export default function Importar() {
             </ul>
           )}
 
+          {lendo && (
+            <p className="texto-suave previa-nota">
+              A IA está lendo os arquivos ({segundos}s). Normalmente leva de 10 a 60 segundos. Não feche nem recarregue a página.
+            </p>
+          )}
+
           <div className="modal-rodape">
             <button type="button" className="botao botao-primario" onClick={lerComIA} disabled={lendo || arquivos.length === 0}>
-              <FiCpu size={18} /> {lendo ? 'Lendo com IA... (pode levar um pouco)' : 'Ler com IA'}
+              <FiCpu size={18} /> {lendo ? `Lendo com IA... ${segundos}s` : 'Ler com IA'}
             </button>
           </div>
         </div>

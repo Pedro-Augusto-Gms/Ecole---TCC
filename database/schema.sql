@@ -94,3 +94,28 @@ ALTER TABLE disponibilidades ADD CONSTRAINT disponibilidades_periodo_check CHECK
 
 ALTER TABLE horarios DROP CONSTRAINT IF EXISTS horarios_periodo_check;
 ALTER TABLE horarios ADD CONSTRAINT horarios_periodo_check CHECK (periodo BETWEEN 1 AND 8);
+
+-- ---------------------------------------------------------------------------
+-- Rascunho x grade oficial
+--   horarios           = grade OFICIAL (publicada, visível para os alunos)
+--   horarios_rascunho  = horário gerado que ainda aguarda a gestão aceitar
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS horarios_rascunho (
+    id             SERIAL PRIMARY KEY,
+    turma_id       INTEGER  NOT NULL REFERENCES turmas(id)       ON DELETE CASCADE,
+    disciplina_id  INTEGER  NOT NULL REFERENCES disciplinas(id)  ON DELETE CASCADE,
+    professor_id   INTEGER  NOT NULL REFERENCES professores(id)  ON DELETE CASCADE,
+    dia_semana     SMALLINT NOT NULL CHECK (dia_semana BETWEEN 1 AND 5),
+    periodo        SMALLINT NOT NULL CHECK (periodo BETWEEN 1 AND 8),
+    UNIQUE (turma_id, dia_semana, periodo)
+);
+
+-- Regras pedidas pela gestão no chat com a IA (ex.: "matemática só depois das 12:00").
+-- turma_id vazio = vale para todas as turmas. regra guarda horários em minutos desde 00:00.
+CREATE TABLE IF NOT EXISTS restricoes (
+    id         SERIAL PRIMARY KEY,
+    turma_id   INTEGER REFERENCES turmas(id) ON DELETE CASCADE,
+    descricao  TEXT      NOT NULL,
+    regra      JSONB     NOT NULL,
+    criado_em  TIMESTAMP NOT NULL DEFAULT NOW()
+);

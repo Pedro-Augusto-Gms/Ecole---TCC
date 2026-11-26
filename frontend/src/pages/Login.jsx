@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { FiUser, FiLock, FiAlertCircle, FiCalendar, FiShield, FiZap } from 'react-icons/fi';
 import Logo from '../components/Logo.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -113,6 +113,10 @@ export default function Login() {
           <button type="submit" className="botao botao-primario botao-bloco" disabled={carregando}>
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
+
+          <Link to="/grade" className="login-link-grade">
+            Sou aluno: ver grade de horários
+          </Link>
 
           <small className="login-rodape">ÉCOLE · Sistema de geração de horários escolares</small>
         </form>

@@ -4,6 +4,10 @@ const asyncHandler = require('../utils/asyncHandler');
 
 router.get('/turma/:turmaId', asyncHandler(controlador.listarPorTurma));
 router.post('/gerar', asyncHandler(controlador.gerar));
-router.delete('/turma/:turmaId', asyncHandler(controlador.limparDaTurma));
+router.post('/publicar', asyncHandler(controlador.publicar));
+router.post('/ajustar', asyncHandler(controlador.ajustar));
+router.delete('/turma/:turmaId/rascunho', asyncHandler(controlador.descartarRascunho));
+router.delete('/turma/:turmaId/publicado', asyncHandler(controlador.despublicar));
+router.delete('/restricoes/:id', asyncHandler(controlador.removerRestricao));
 
 module.exports = router;

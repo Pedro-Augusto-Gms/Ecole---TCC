@@ -34,4 +34,14 @@ async function extrairProfessores(arquivos) {
   return interpretarJson(texto);
 }
 
-module.exports = { extrairProfessores, interpretarJson };
+// Pergunta só em texto (sem arquivos) e devolve o JSON da resposta. Usado no chat de ajuste de horários.
+async function consultarIA(prompt) {
+  const nome = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+  const provedor = PROVEDORES[nome];
+  if (!provedor) throw erroIA(500, `AI_PROVIDER inválido ("${nome}"). Use "gemini" ou "claude".`);
+
+  const texto = await provedor.extrair([], prompt);
+  return interpretarJson(texto);
+}
+
+module.exports = { extrairProfessores, consultarIA, interpretarJson };

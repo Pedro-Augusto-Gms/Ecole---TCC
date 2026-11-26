@@ -3,6 +3,7 @@ const autenticar = require('../middlewares/auth');
 
 // Rota pública
 router.use('/auth', require('./authRoutes'));
+router.use('/publico', require('./publicoRoutes')); // grade dos alunos, sem login
 
 // Tudo abaixo exige login
 router.use(autenticar);

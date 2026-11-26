@@ -1,33 +1,26 @@
-const { DIAS } = require('../config/horarios');
+const { DIAS, intervaloDoPeriodo } = require('../config/horarios');
 
 /**
- * Gerador de horários - VERSÃO INICIAL (algoritmo guloso).
- *
- * Esta é a camada que será evoluída no TCC. A assinatura (entrada/saída) pode
- * ser mantida ao trocar o algoritmo (ex.: backtracking, algoritmo genético,
- * programação por restrições), sem mexer em controllers ou frontend.
+ * Gerador de horários (algoritmo guloso). Continua isolado aqui para ser evoluído no TCC
+ * sem mexer em controllers ou frontend.
  *
  * Entrada:
- *  - disciplinas: [{ id, nome, aulas_semanais }]            disciplinas da turma
+ *  - disciplinas: [{ id, nome, aulas_semanais }]                    disciplinas da turma
  *  - professores: [{ id, pontuacao, disciplinas: [ids], disponibilidade: [{ dia_semana, periodo }] }]
- *  - ocupacaoExterna: [{ professor_id, dia_semana, periodo }] aulas já alocadas em OUTRAS turmas
- *  - periodosPorDia: número de períodos considerados por dia
+ *  - ocupacaoExterna: [{ professor_id, dia_semana, periodo }]       aulas em OUTRAS turmas
+ *  - periodosPorDia: aulas por dia da turma (define os horários reais de cada aula)
+ *  - restricoes: [{ disciplina_id?, professor_id?, depois_de?, antes_de?, dias_permitidos?, dias_proibidos? }]
+ *      depois_de/antes_de em minutos desde 00:00. Uma regra vale para a aula quando a disciplina e o
+ *      professor citados (se houver) coincidem com os dela.
  *
- * Saída:
- *  - alocacoes: [{ dia_semana, periodo, disciplina_id, professor_id }]
- *  - pendencias: [{ disciplina, aulas_faltando, motivo }]
+ * Saída: { alocacoes: [{ dia_semana, periodo, disciplina_id, professor_id }], pendencias: [...] }
  *
- * Regras atuais:
- *  1. Uma turma não pode ter duas aulas no mesmo horário.
- *  2. O professor só é usado dentro da sua disponibilidade.
- *  3. O professor não pode estar em duas turmas no mesmo horário.
- *  4. Tenta distribuir as aulas de uma disciplina em dias diferentes.
- *  5. Entre professores que podem dar a mesma disciplina, o de maior pontuação tem prioridade.
+ * Regras: turma sem duas aulas no mesmo horário; professor só na sua disponibilidade e em uma turma
+ * por vez; aulas da disciplina espalhadas pelos dias; maior pontuação tem prioridade; restrições da gestão.
  */
-function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDia }) {
+function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDia, restricoes = [] }) {
   const chave = (dia, periodo) => `${dia}-${periodo}`;
 
-  // Professores com maior pontuação vêm primeiro: têm prioridade quando mais de um pode dar a mesma aula.
   const professoresPreparados = professores
     .map((professor) => ({
       id: professor.id,
@@ -37,12 +30,25 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
     }))
     .sort((a, b) => b.pontuacao - a.pontuacao);
 
-  const professorOcupado = new Set(
-    ocupacaoExterna.map((o) => `${o.professor_id}-${chave(o.dia_semana, o.periodo)}`)
-  );
+  const professorOcupado = new Set(ocupacaoExterna.map((o) => `${o.professor_id}-${chave(o.dia_semana, o.periodo)}`));
   const gradeTurma = new Set();
   const alocacoes = [];
   const pendencias = [];
+
+  // A aula respeita todas as regras da gestão que se aplicam a ela?
+  function permitido(disciplinaId, professorId, dia, periodo) {
+    const horario = intervaloDoPeriodo(periodosPorDia, periodo);
+    if (!horario) return false;
+    for (const regra of restricoes) {
+      if (regra.disciplina_id && regra.disciplina_id !== disciplinaId) continue;
+      if (regra.professor_id && regra.professor_id !== professorId) continue;
+      if (regra.depois_de != null && horario.inicio < regra.depois_de) return false;
+      if (regra.antes_de != null && horario.fim > regra.antes_de) return false;
+      if (regra.dias_permitidos && regra.dias_permitidos.length && !regra.dias_permitidos.includes(dia)) return false;
+      if (regra.dias_proibidos && regra.dias_proibidos.includes(dia)) return false;
+    }
+    return true;
+  }
 
   // Disciplinas com mais aulas primeiro (são as mais difíceis de encaixar)
   const ordenadas = [...disciplinas].sort((a, b) => b.aulas_semanais - a.aulas_semanais);
@@ -71,7 +77,10 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
           if (gradeTurma.has(slot)) continue;
 
           const professor = candidatos.find(
-            (c) => c.disponibilidade.has(slot) && !professorOcupado.has(`${c.id}-${slot}`)
+            (c) =>
+              c.disponibilidade.has(slot) &&
+              !professorOcupado.has(`${c.id}-${slot}`) &&
+              permitido(disciplina.id, c.id, dia.numero, periodo)
           );
           if (!professor) continue;
 
@@ -100,7 +109,9 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
       pendencias.push({
         disciplina: disciplina.nome,
         aulas_faltando: disciplina.aulas_semanais - alocadas,
-        motivo: 'Sem horários livres compatíveis com a disponibilidade dos professores.',
+        motivo: restricoes.length
+          ? 'Sem horários livres compatíveis com a disponibilidade dos professores e as restrições pedidas.'
+          : 'Sem horários livres compatíveis com a disponibilidade dos professores.',
       });
     }
   }

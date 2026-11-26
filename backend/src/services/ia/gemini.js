@@ -6,7 +6,10 @@ async function extrair(arquivos, prompt) {
   if (!chave) {
     throw erroIA(400, 'Chave do Gemini não configurada. Adicione GEMINI_API_KEY no arquivo backend/.env e reinicie a API.');
   }
-  const modelo = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // Padrão: modelo "flash-lite", bem mais rápido para ler formulários. Para mais precisão (e mais lentidão),
+  // defina GEMINI_MODEL=gemini-3.6-flash no .env. Lista de modelos: https://ai.google.dev/gemini-api/docs/models
+  const modelo = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  const inicio = Date.now();
 
   const partes = [{ text: prompt }];
   for (const arquivo of arquivos) {
@@ -30,6 +33,7 @@ async function extrair(arquivos, prompt) {
   }
 
   const dados = await resposta.json().catch(() => ({}));
+  console.log(`[Gemini] ${modelo} respondeu em ${((Date.now() - inicio) / 1000).toFixed(1)}s (status ${resposta.status})`);
 
   if (!resposta.ok) {
     const detalhe = dados?.error?.message || `erro ${resposta.status}`;

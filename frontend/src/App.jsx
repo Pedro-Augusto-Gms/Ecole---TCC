@@ -7,11 +7,13 @@ import Turmas from './pages/Turmas.jsx';
 import Disciplinas from './pages/Disciplinas.jsx';
 import Horarios from './pages/Horarios.jsx';
 import Importar from './pages/Importar.jsx';
+import Grade from './pages/Grade.jsx';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/grade" element={<Grade />} />
 
       <Route element={<RotaPrivada />}>
         <Route path="/" element={<Dashboard />} />
