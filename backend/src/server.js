@@ -1,4 +1,6 @@
 require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const rotas = require('./routes');
@@ -16,6 +18,17 @@ app.use(express.json({ limit: '40mb' }));
 
 app.get('/api/saude', (req, res) => res.json({ status: 'ok', sistema: 'ÉCOLE' }));
 app.use('/api', rotas);
+
+// Em produção, a própria API entrega o site (frontend/dist, gerado por "npm run build").
+// Assim o sistema inteiro fica em um único endereço.
+const pastaSite = path.join(__dirname, '..', '..', 'frontend', 'dist');
+if (fs.existsSync(path.join(pastaSite, 'index.html'))) {
+  app.use(express.static(pastaSite));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(pastaSite, 'index.html'));
+  });
+}
 
 app.use((req, res) => res.status(404).json({ mensagem: 'Rota não encontrada.' }));
 
