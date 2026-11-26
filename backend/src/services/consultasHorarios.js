@@ -7,7 +7,7 @@ async function buscarHorarios(alvo, turmaId) {
   const tabela = TABELAS[alvo];
   const { rows } = await db.query(
     `SELECT h.id, h.dia_semana, h.periodo,
-            d.id AS disciplina_id, d.nome AS disciplina,
+            d.id AS disciplina_id, d.nome AS disciplina, d.nome_completo AS disciplina_completa,
             p.id AS professor_id,  p.nome AS professor
        FROM ${tabela} h
        JOIN disciplinas d ON d.id = h.disciplina_id

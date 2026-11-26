@@ -1,65 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiUpload, FiCpu, FiTrash2, FiCheckCircle, FiAlertTriangle, FiX, FiFileText } from 'react-icons/fi';
 import PageHeader from '../components/PageHeader.jsx';
+import ImportarGrade from './ImportarGrade.jsx';
+import { normalizar, lerArquivo, reduzirImagem, TIPOS_ACEITOS, MAX_ARQUIVOS, MAX_MB } from '../utils/arquivos.js';
 import GradeDisponibilidade from '../components/GradeDisponibilidade.jsx';
 import api, { mensagemErro } from '../services/api.js';
 
-const TIPOS_ACEITOS = 'image/jpeg,image/png,image/webp,image/heic,application/pdf,text/plain';
-const MAX_ARQUIVOS = 6;
-const MAX_MB = 8;
-
-// Mesma regra do backend: ignora acento, caixa e espaços extras ao comparar nomes.
-function normalizar(texto) {
-  return String(texto || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-function lerArquivo(arquivo) {
-  return new Promise((resolve, reject) => {
-    const leitor = new FileReader();
-    leitor.onload = () => resolve({ nome: arquivo.name, tipo: arquivo.type, dados: String(leitor.result).split(',')[1] });
-    leitor.onerror = () => reject(new Error(`Não foi possível ler o arquivo ${arquivo.name}.`));
-    leitor.readAsDataURL(arquivo);
-  });
-}
-
-// Fotos de celular são enormes. Reduzir para no máximo 1800 px deixa o envio e a leitura bem mais rápidos
-// sem prejudicar a letra. Se o navegador não conseguir (ex.: HEIC), envia o arquivo original.
-async function reduzirImagem(arquivo) {
-  if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) return arquivo;
-  try {
-    const imagem = await createImageBitmap(arquivo);
-    const escala = Math.min(1, 1800 / Math.max(imagem.width, imagem.height));
-    if (escala === 1 && arquivo.size < 1.5 * 1024 * 1024) {
-      imagem.close?.();
-      return arquivo;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(imagem.width * escala);
-    canvas.height = Math.round(imagem.height * escala);
-    const contexto = canvas.getContext('2d');
-    contexto.fillStyle = '#ffffff';
-    contexto.fillRect(0, 0, canvas.width, canvas.height);
-    contexto.drawImage(imagem, 0, 0, canvas.width, canvas.height);
-    imagem.close?.();
-    const blob = await new Promise((resolver) => canvas.toBlob(resolver, 'image/jpeg', 0.85));
-    return blob ? new File([blob], `${arquivo.name.replace(/\.\w+$/, '')}.jpg`, { type: 'image/jpeg' }) : arquivo;
-  } catch {
-    return arquivo;
-  }
-}
-
-export default function Importar() {
+function ImportarProfessores() {
   const [arquivos, setArquivos] = useState([]);
   const [lendo, setLendo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [segundos, setSegundos] = useState(0);
+  const [info, setInfo] = useState('');
+  const controle = useRef(null);
 
   // Contador mostrado enquanto a IA lê, para a gestão ver que o sistema está trabalhando.
   useEffect(() => {
@@ -89,18 +44,28 @@ export default function Importar() {
 
   async function lerComIA() {
     setErro('');
+    setInfo('');
     setResultado(null);
     setLendo(true);
+    const abort = new AbortController();
+    controle.current = abort;
     try {
       const enviados = await Promise.all(arquivos.map(async (arquivo) => lerArquivo(await reduzirImagem(arquivo))));
-      const { data } = await api.post('/importacao/ler', { arquivos: enviados });
+      if (abort.signal.aborted) return;
+      const { data } = await api.post('/importacao/ler', { arquivos: enviados }, { signal: abort.signal });
       setPrevia(data);
       setAulasNovas({});
     } catch (e) {
-      setErro(e.message && !e.response ? e.message : mensagemErro(e));
+      if (abort.signal.aborted || e.code === 'ERR_CANCELED') setInfo('Leitura cancelada. Nada foi salvo.');
+      else setErro(e.message && !e.response ? e.message : mensagemErro(e));
     } finally {
+      controle.current = null;
       setLendo(false);
     }
+  }
+
+  function cancelarLeitura() {
+    controle.current?.abort();
   }
 
   function atualizarProfessor(indice, mudancas) {
@@ -173,12 +138,9 @@ export default function Importar() {
 
   return (
     <>
-      <PageHeader
-        titulo="Importar formulários"
-        subtitulo="Envie fotos ou PDFs dos formulários dos professores. A IA lê os dados e você confere antes de salvar."
-      />
-
       {erro && <div className="alerta alerta-erro">{erro}</div>}
+
+      {info && <div className="alerta alerta-aviso">{info}</div>}
 
       {resultado && (
         <div className="alerta alerta-sucesso">
@@ -233,6 +195,11 @@ export default function Importar() {
             <button type="button" className="botao botao-primario" onClick={lerComIA} disabled={lendo || arquivos.length === 0}>
               <FiCpu size={18} /> {lendo ? `Lendo com IA... ${segundos}s` : 'Ler com IA'}
             </button>
+            {lendo && (
+              <button type="button" className="botao botao-secundario" onClick={cancelarLeitura}>
+                <FiX size={18} /> Cancelar leitura
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -363,6 +330,27 @@ export default function Importar() {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+export default function Importar() {
+  const [aba, setAba] = useState('professores');
+  return (
+    <>
+      <PageHeader
+        titulo="Importar com IA"
+        subtitulo="Envie fotos ou PDFs. A IA lê os dados e você confere antes de salvar."
+      />
+      <div className="abas-visao abas-importar">
+        <button type="button" className={aba === 'professores' ? 'ativa' : ''} onClick={() => setAba('professores')}>
+          Professores (disponibilidade)
+        </button>
+        <button type="button" className={aba === 'grade' ? 'ativa' : ''} onClick={() => setAba('grade')}>
+          Grade curricular (curso e turmas)
+        </button>
+      </div>
+      {aba === 'professores' ? <ImportarProfessores /> : <ImportarGrade />}
     </>
   );
 }

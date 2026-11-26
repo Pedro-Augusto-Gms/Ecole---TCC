@@ -11,6 +11,7 @@ export default function Horarios() {
   const [dados, setDados] = useState(null); // { turma, estrutura, rascunho, publicado, restricoes }
   const [visao, setVisao] = useState('rascunho');
   const [pendencias, setPendencias] = useState([]);
+  const [ajustes, setAjustes] = useState([]);
   const [conversa, setConversa] = useState([]);
   const [mensagem, setMensagem] = useState('');
   const [ocupado, setOcupado] = useState('');
@@ -28,6 +29,7 @@ export default function Horarios() {
   useEffect(() => {
     setDados(null);
     setPendencias([]);
+    setAjustes([]);
     setConversa([]);
     setSucesso('');
     if (!turmaId) return;
@@ -58,6 +60,7 @@ export default function Horarios() {
       const { data } = await api.post('/horarios/gerar', { turma_id: Number(turmaId) });
       setDados(data);
       setPendencias(data.pendencias || []);
+      setAjustes(data.ajustes || []);
       setVisao('rascunho');
     });
 
@@ -67,6 +70,7 @@ export default function Horarios() {
       const { data } = await api.post('/horarios/publicar', { turma_id: Number(turmaId) });
       setDados(data);
       setPendencias([]);
+    setAjustes([]);
       setVisao('publicado');
       setSucesso('Grade publicada! Os alunos já podem ver esta turma na página pública.');
     });
@@ -78,6 +82,7 @@ export default function Horarios() {
       const { data } = await api.delete(`/horarios/turma/${turmaId}/rascunho`);
       setDados(data);
       setPendencias([]);
+    setAjustes([]);
       setVisao('publicado');
     });
   };
@@ -109,6 +114,7 @@ export default function Horarios() {
       const { data } = await api.post('/horarios/ajustar', { turma_id: Number(turmaId), mensagem: texto });
       setDados(data);
       setPendencias(data.pendencias || []);
+      setAjustes(data.ajustes || []);
       if (data.aplicadas.length > 0) setVisao('rascunho');
       setConversa((atual) => [
         ...atual,
@@ -171,6 +177,20 @@ export default function Horarios() {
           </p>
         )}
       </div>
+
+      {ajustes.length > 0 && (
+        <div className="alerta alerta-aviso">
+          <FiAlertTriangle size={18} />
+          <div>
+            <strong>Não coube tudo na disponibilidade dos professores. Estas aulas foram colocadas fora dela, o mais perto possível:</strong>
+            <ul>
+              {ajustes.map((ajuste, i) => (
+                <li key={i}>{ajuste.mensagem}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {pendencias.length > 0 && (
         <div className="alerta alerta-aviso">

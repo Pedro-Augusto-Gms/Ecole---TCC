@@ -1,5 +1,5 @@
 const { erroIA } = require('./erro');
-const { PROMPT_EXTRACAO } = require('./prompt');
+const { PROMPT_EXTRACAO, PROMPT_GRADE } = require('./prompt');
 
 const PROVEDORES = {
   gemini: require('./gemini'),
@@ -24,24 +24,24 @@ function interpretarJson(texto) {
   }
 }
 
-// Envia os arquivos para a IA configurada em AI_PROVIDER (padrão: gemini) e devolve o JSON bruto.
-async function extrairProfessores(arquivos) {
+function escolherProvedor() {
   const nome = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
   const provedor = PROVEDORES[nome];
   if (!provedor) throw erroIA(500, `AI_PROVIDER inválido ("${nome}"). Use "gemini" ou "claude".`);
+  return provedor;
+}
 
-  const texto = await provedor.extrair(arquivos, PROMPT_EXTRACAO);
+// Envia arquivos + instruções à IA configurada em AI_PROVIDER (padrão: gemini) e devolve o JSON lido.
+// opcoes.signal permite cancelar a leitura.
+async function extrairDados(arquivos, prompt, opcoes = {}) {
+  const texto = await escolherProvedor().extrair(arquivos, prompt, opcoes);
   return interpretarJson(texto);
 }
 
-// Pergunta só em texto (sem arquivos) e devolve o JSON da resposta. Usado no chat de ajuste de horários.
-async function consultarIA(prompt) {
-  const nome = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
-  const provedor = PROVEDORES[nome];
-  if (!provedor) throw erroIA(500, `AI_PROVIDER inválido ("${nome}"). Use "gemini" ou "claude".`);
+const extrairProfessores = (arquivos, opcoes) => extrairDados(arquivos, PROMPT_EXTRACAO, opcoes);
+const extrairGrade = (arquivos, opcoes) => extrairDados(arquivos, PROMPT_GRADE, opcoes);
 
-  const texto = await provedor.extrair([], prompt);
-  return interpretarJson(texto);
-}
+// Pergunta só em texto (sem arquivos). Usado no chat de ajuste de horários.
+const consultarIA = (prompt) => extrairDados([], prompt);
 
-module.exports = { extrairProfessores, consultarIA, interpretarJson };
+module.exports = { extrairProfessores, extrairGrade, consultarIA, interpretarJson };

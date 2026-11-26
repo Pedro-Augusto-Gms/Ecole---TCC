@@ -5,4 +5,10 @@ function erroIA(status, mensagem) {
   return erro;
 }
 
-module.exports = { erroIA };
+// Sinal que cancela a chamada à IA quando o tempo acaba (2 min) ou quando a gestão clica em "Cancelar".
+function sinalComTempo(sinalExterno, ms = 120000) {
+  const tempo = AbortSignal.timeout(ms);
+  return sinalExterno ? AbortSignal.any([sinalExterno, tempo]) : tempo;
+}
+
+module.exports = { erroIA, sinalComTempo };

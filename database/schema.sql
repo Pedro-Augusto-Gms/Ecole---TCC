@@ -119,3 +119,10 @@ CREATE TABLE IF NOT EXISTS restricoes (
     regra      JSONB     NOT NULL,
     criado_em  TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- ---------------------------------------------------------------------------
+-- Grade curricular: aulas por semana de cada disciplina DENTRO de cada turma
+-- (a mesma disciplina pode ter 2 aulas na 1ª série e 3 na 2ª) e nome completo de disciplinas abreviadas
+-- ---------------------------------------------------------------------------
+ALTER TABLE turma_disciplinas ADD COLUMN IF NOT EXISTS aulas_semanais INTEGER CHECK (aulas_semanais BETWEEN 1 AND 20);
+ALTER TABLE disciplinas ADD COLUMN IF NOT EXISTS nome_completo VARCHAR(250);

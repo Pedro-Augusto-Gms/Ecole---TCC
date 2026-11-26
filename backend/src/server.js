@@ -39,5 +39,16 @@ app.use((erro, req, res, next) => {
   res.status(500).json({ mensagem: 'Erro interno do servidor.' });
 });
 
+// Garante as colunas novas mesmo que o "npm run db:init" não tenha sido rodado depois de uma atualização.
+async function garantirColunas() {
+  const db = require('./config/db');
+  try {
+    await db.query('ALTER TABLE turma_disciplinas ADD COLUMN IF NOT EXISTS aulas_semanais INTEGER CHECK (aulas_semanais BETWEEN 1 AND 20)');
+    await db.query('ALTER TABLE disciplinas ADD COLUMN IF NOT EXISTS nome_completo VARCHAR(250)');
+  } catch (erro) {
+    console.error('Não foi possível conferir as colunas do banco:', erro.message);
+  }
+}
+
 const PORTA = process.env.PORT || 3001;
-app.listen(PORTA, () => console.log(`API do ÉCOLE rodando em http://localhost:${PORTA}`));
+garantirColunas().finally(() => app.listen(PORTA, () => console.log(`API do ÉCOLE rodando em http://localhost:${PORTA}`)));

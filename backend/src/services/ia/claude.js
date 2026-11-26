@@ -1,8 +1,8 @@
-const { erroIA } = require('./erro');
+const { erroIA, sinalComTempo } = require('./erro');
 
 // Provedor alternativo (pago por uso): Claude, da Anthropic.
 // Para usar: AI_PROVIDER=claude e ANTHROPIC_API_KEY=... no backend/.env.
-async function extrair(arquivos, prompt) {
+async function extrair(arquivos, prompt, opcoes = {}) {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) {
     throw erroIA(400, 'Chave da Anthropic não configurada. Adicione ANTHROPIC_API_KEY no arquivo backend/.env e reinicie a API.');
@@ -28,9 +28,10 @@ async function extrair(arquivos, prompt) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': chave, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: modelo, max_tokens: 4096, messages: [{ role: 'user', content: conteudo }] }),
-      signal: AbortSignal.timeout(120000),
+      signal: sinalComTempo(opcoes.signal),
     });
   } catch (erro) {
+    if (opcoes.signal?.aborted) throw erroIA(499, 'Leitura cancelada.');
     throw erroIA(502, `Não foi possível falar com a Anthropic (${erro.name === 'TimeoutError' ? 'demorou demais' : erro.message}).`);
   }
 

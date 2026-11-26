@@ -1,5 +1,6 @@
 const db = require('../config/db');
-const { extrairProfessores } = require('../services/ia');
+const { extrairProfessores, extrairGrade } = require('../services/ia');
+const { sanitizarGrade } = require('../services/gradeService');
 const { normalizar, numeroOuNull, sanitizarDisponibilidade, sanitizarResultado } = require('../services/importacaoService');
 const { registrarAtividade } = require('../utils/atividades');
 
@@ -21,10 +22,17 @@ exports.ler = async (req, res) => {
     }
   }
 
+  // Se a gestão cancelar no site, a conexão fecha e a chamada à IA também é cancelada.
+  const cancelador = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) cancelador.abort();
+  });
+
   let bruto;
   try {
-    bruto = await extrairProfessores(arquivos);
+    bruto = await extrairProfessores(arquivos, { signal: cancelador.signal });
   } catch (erro) {
+    if (erro.status === 499) return undefined;
     return res.status(erro.status || 502).json({ mensagem: erro.message });
   }
 
@@ -125,6 +133,137 @@ exports.confirmar = async (req, res) => {
 
   await registrarAtividade(
     `Importação por IA: ${resumo.criados} professor(es) novo(s), ${resumo.atualizados} atualizado(s), ${resumo.disciplinas_criadas} disciplina(s) criada(s)`
+  );
+  res.json(resumo);
+};
+
+// ---------------------------------------------------------------------------
+// Grade curricular: a IA lê curso, séries e horas de cada disciplina.
+// ---------------------------------------------------------------------------
+const TURNOS = ['Integral', 'Manhã', 'Noite'];
+
+function validarArquivos(arquivos) {
+  if (arquivos.length === 0) return 'Envie pelo menos um arquivo.';
+  if (arquivos.length > MAX_ARQUIVOS) return `Envie no máximo ${MAX_ARQUIVOS} arquivos por vez.`;
+  for (const arquivo of arquivos) {
+    if (!TIPOS_ACEITOS.includes(arquivo?.tipo) || typeof arquivo?.dados !== 'string' || !arquivo.dados) {
+      return `Arquivo "${arquivo?.nome || '?'}" não aceito. Use foto (JPG, PNG, WEBP), PDF ou texto.`;
+    }
+  }
+  return null;
+}
+
+// Passo 1: devolve uma PRÉVIA das turmas e disciplinas. Nada é gravado aqui.
+exports.lerGrade = async (req, res) => {
+  const arquivos = Array.isArray(req.body.arquivos) ? req.body.arquivos : [];
+  const problema = validarArquivos(arquivos);
+  if (problema) return res.status(400).json({ mensagem: problema });
+
+  const cancelador = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) cancelador.abort();
+  });
+
+  let bruto;
+  try {
+    bruto = await extrairGrade(arquivos, { signal: cancelador.signal });
+  } catch (erro) {
+    if (erro.status === 499) return undefined;
+    return res.status(erro.status || 502).json({ mensagem: erro.message });
+  }
+
+  const { cursos, avisos } = sanitizarGrade(bruto);
+  const turmasExistentes = new Set((await db.query('SELECT nome FROM turmas')).rows.map((t) => normalizar(t.nome)));
+  const disciplinasExistentes = new Set((await db.query('SELECT nome FROM disciplinas')).rows.map((d) => normalizar(d.nome)));
+
+  res.json({
+    cursos: cursos.map((curso) => ({
+      ...curso,
+      series: curso.series.map((serie) => ({
+        ...serie,
+        turno: 'Integral',
+        aulas_por_dia: 8,
+        ja_existe: turmasExistentes.has(normalizar(serie.nome_turma)),
+        disciplinas: serie.disciplinas.map((d) => ({ ...d, existe: disciplinasExistentes.has(normalizar(d.nome)) })),
+      })),
+    })),
+    avisos,
+  });
+};
+
+// Passo 2: a gestão conferiu a prévia. Cria as turmas, as disciplinas e as aulas por semana de cada uma.
+exports.confirmarGrade = async (req, res) => {
+  const recebidas = Array.isArray(req.body.turmas) ? req.body.turmas : [];
+  if (recebidas.length === 0) return res.status(400).json({ mensagem: 'Não há turmas para salvar.' });
+
+  const resumo = { turmas_criadas: 0, turmas_atualizadas: 0, disciplinas_criadas: 0, avisos: [] };
+
+  try {
+  await db.transacao(async (cliente) => {
+    const idDisciplina = new Map((await cliente.query('SELECT id, nome FROM disciplinas')).rows.map((d) => [normalizar(d.nome), d.id]));
+    const idTurma = new Map((await cliente.query('SELECT id, nome FROM turmas')).rows.map((t) => [normalizar(t.nome), t.id]));
+
+    for (const item of recebidas) {
+      const nome = String(item?.nome_turma || '').trim().slice(0, 80);
+      const turno = TURNOS.includes(item?.turno) ? item.turno : 'Integral';
+      const aulasPorDia = Number(item?.aulas_por_dia || 8);
+
+      if (nome.length < 2) {
+        resumo.avisos.push('Uma turma sem nome foi ignorada.');
+        continue;
+      }
+      if (!Number.isInteger(aulasPorDia) || aulasPorDia < 1 || aulasPorDia > 8) {
+        resumo.avisos.push(`Turma "${nome}" ignorada: aulas por dia deve ficar entre 1 e 8.`);
+        continue;
+      }
+
+      let turmaId = idTurma.get(normalizar(nome));
+      if (turmaId) {
+        await cliente.query('UPDATE turmas SET nome = $1, turno = $2, aulas_por_dia = $3 WHERE id = $4', [nome, turno, aulasPorDia, turmaId]);
+        await cliente.query('DELETE FROM turma_disciplinas WHERE turma_id = $1', [turmaId]);
+        resumo.turmas_atualizadas++;
+      } else {
+        const { rows } = await cliente.query('INSERT INTO turmas (nome, turno, aulas_por_dia) VALUES ($1, $2, $3) RETURNING id', [nome, turno, aulasPorDia]);
+        turmaId = rows[0].id;
+        idTurma.set(normalizar(nome), turmaId);
+        resumo.turmas_criadas++;
+      }
+
+      for (const disciplina of Array.isArray(item.disciplinas) ? item.disciplinas : []) {
+        const nomeDisciplina = String(disciplina?.nome || '').trim().slice(0, 120);
+        const aulas = Number(disciplina?.aulas_semanais);
+        if (nomeDisciplina.length < 2 || !Number.isInteger(aulas) || aulas < 1 || aulas > 20) {
+          resumo.avisos.push(`${nome}: disciplina "${nomeDisciplina || '?'}" ignorada (nome ou aulas por semana inválidos).`);
+          continue;
+        }
+
+        let disciplinaId = idDisciplina.get(normalizar(nomeDisciplina));
+        if (!disciplinaId) {
+          const completo = String(disciplina?.nome_completo || '').trim().slice(0, 250) || null;
+          const { rows } = await cliente.query(
+            'INSERT INTO disciplinas (nome, aulas_semanais, nome_completo) VALUES ($1, $2, $3) RETURNING id',
+            [nomeDisciplina, aulas, completo]
+          );
+          disciplinaId = rows[0].id;
+          idDisciplina.set(normalizar(nomeDisciplina), disciplinaId);
+          resumo.disciplinas_criadas++;
+        }
+
+        await cliente.query(
+          `INSERT INTO turma_disciplinas (turma_id, disciplina_id, aulas_semanais) VALUES ($1, $2, $3)
+           ON CONFLICT (turma_id, disciplina_id) DO UPDATE SET aulas_semanais = EXCLUDED.aulas_semanais`,
+          [turmaId, disciplinaId, aulas]
+        );
+      }
+    }
+  });
+  } catch (erro) {
+    console.error('Erro ao salvar a grade curricular:', erro);
+    return res.status(500).json({ mensagem: `Não foi possível salvar a grade: ${erro.detail || erro.message}` });
+  }
+
+  await registrarAtividade(
+    `Importação da grade curricular: ${resumo.turmas_criadas} turma(s) nova(s), ${resumo.turmas_atualizadas} atualizada(s), ${resumo.disciplinas_criadas} disciplina(s) criada(s)`
   );
   res.json(resumo);
 };

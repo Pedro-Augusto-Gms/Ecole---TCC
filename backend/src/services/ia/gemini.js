@@ -1,7 +1,7 @@
-const { erroIA } = require('./erro');
+const { erroIA, sinalComTempo } = require('./erro');
 
 // Provedor gratuito: Google Gemini (chave em https://aistudio.google.com/apikey).
-async function extrair(arquivos, prompt) {
+async function extrair(arquivos, prompt, opcoes = {}) {
   const chave = process.env.GEMINI_API_KEY;
   if (!chave) {
     throw erroIA(400, 'Chave do Gemini não configurada. Adicione GEMINI_API_KEY no arquivo backend/.env e reinicie a API.');
@@ -26,9 +26,10 @@ async function extrair(arquivos, prompt) {
         contents: [{ role: 'user', parts: partes }],
         generationConfig: { responseMimeType: 'application/json', temperature: 0 },
       }),
-      signal: AbortSignal.timeout(120000),
+      signal: sinalComTempo(opcoes.signal),
     });
   } catch (erro) {
+    if (opcoes.signal?.aborted) throw erroIA(499, 'Leitura cancelada.');
     throw erroIA(502, `Não foi possível falar com o Gemini (${erro.name === 'TimeoutError' ? 'demorou demais' : erro.message}). Verifique a internet e tente de novo.`);
   }
 

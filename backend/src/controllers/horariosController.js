@@ -31,7 +31,7 @@ async function gerarRascunho(turmaId) {
   if (!turma.rows[0]) return null;
 
   const disciplinas = await db.query(
-    `SELECT d.id, d.nome, d.aulas_semanais
+    `SELECT d.id, d.nome, COALESCE(td.aulas_semanais, d.aulas_semanais) AS aulas_semanais
        FROM turma_disciplinas td JOIN disciplinas d ON d.id = td.disciplina_id
       WHERE td.turma_id = $1`,
     [turmaId]
@@ -43,7 +43,7 @@ async function gerarRascunho(turmaId) {
   }
 
   const professores = await db.query(
-    `SELECT p.id, p.pontuacao,
+    `SELECT p.id, p.nome, p.pontuacao,
             COALESCE((SELECT array_agg(disciplina_id) FROM professor_disciplinas WHERE professor_id = p.id), '{}'::int[]) AS disciplinas,
             COALESCE((SELECT json_agg(json_build_object('dia_semana', dia_semana, 'periodo', periodo))
                         FROM disponibilidades WHERE professor_id = p.id), '[]') AS disponibilidade
@@ -60,7 +60,7 @@ async function gerarRascunho(turmaId) {
 
   const regras = await db.query('SELECT regra FROM restricoes WHERE turma_id IS NULL OR turma_id = $1', [turmaId]);
 
-  const { alocacoes, pendencias } = gerarHorario({
+  const { alocacoes, pendencias, ajustes } = gerarHorario({
     disciplinas: disciplinas.rows,
     professores: professores.rows,
     ocupacaoExterna: ocupacao.rows,
@@ -80,7 +80,7 @@ async function gerarRascunho(turmaId) {
   });
 
   await registrarAtividade(`Rascunho de horário da turma "${turma.rows[0].nome}" gerado`);
-  return pendencias;
+  return { pendencias, ajustes };
 }
 
 function responderErro(res, erro) {
@@ -97,16 +97,16 @@ exports.gerar = async (req, res) => {
   const turmaId = Number(req.body.turma_id);
   if (!Number.isInteger(turmaId)) return res.status(400).json({ mensagem: 'Selecione uma turma.' });
 
-  let pendencias;
+  let resultado;
   try {
-    pendencias = await gerarRascunho(turmaId);
+    resultado = await gerarRascunho(turmaId);
   } catch (erro) {
     if (erro.status) return responderErro(res, erro);
     throw erro;
   }
-  if (pendencias === null) return res.status(404).json({ mensagem: 'Turma não encontrada.' });
+  if (resultado === null) return res.status(404).json({ mensagem: 'Turma não encontrada.' });
 
-  res.json({ ...(await dadosDaTurma(turmaId)), pendencias });
+  res.json({ ...(await dadosDaTurma(turmaId)), pendencias: resultado.pendencias, ajustes: resultado.ajustes });
 };
 
 // A gestão aceitou o rascunho: ele vira a grade oficial, visível para os alunos.
@@ -198,9 +198,12 @@ exports.ajustar = async (req, res) => {
   }
 
   let pendencias = [];
+  let ajustes = [];
   if (restricoes.length > 0) {
     try {
-      pendencias = (await gerarRascunho(turmaId)) || [];
+      const refeito = (await gerarRascunho(turmaId)) || { pendencias: [], ajustes: [] };
+      pendencias = refeito.pendencias;
+      ajustes = refeito.ajustes;
     } catch (erro) {
       if (erro.status) avisos.push(erro.message);
       else throw erro;
@@ -214,6 +217,7 @@ exports.ajustar = async (req, res) => {
     avisos,
     aplicadas: restricoes.map((r) => r.descricao),
     pendencias,
+    ajustes,
   });
 };
 

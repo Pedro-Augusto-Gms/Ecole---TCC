@@ -6,7 +6,7 @@ const TURNOS = ['Integral', 'Manhã', 'Noite'];
 const CONSULTA_BASE = `
   SELECT t.*,
     COALESCE((
-      SELECT json_agg(json_build_object('id', d.id, 'nome', d.nome, 'aulas_semanais', d.aulas_semanais) ORDER BY d.nome)
+      SELECT json_agg(json_build_object('id', d.id, 'nome', d.nome, 'aulas_semanais', COALESCE(td.aulas_semanais, d.aulas_semanais)) ORDER BY d.nome)
       FROM turma_disciplinas td JOIN disciplinas d ON d.id = td.disciplina_id
       WHERE td.turma_id = t.id
     ), '[]') AS disciplinas
@@ -31,11 +31,15 @@ function validar(corpo) {
 }
 
 async function salvarDisciplinas(cliente, turmaId, disciplinas) {
+  // Ao editar a turma, mantém as aulas por semana que a grade curricular definiu para cada disciplina.
+  const atuais = await cliente.query('SELECT disciplina_id, aulas_semanais FROM turma_disciplinas WHERE turma_id = $1', [turmaId]);
+  const preservar = new Map(atuais.rows.map((linha) => [linha.disciplina_id, linha.aulas_semanais]));
+
   await cliente.query('DELETE FROM turma_disciplinas WHERE turma_id = $1', [turmaId]);
   for (const disciplinaId of disciplinas) {
     await cliente.query(
-      'INSERT INTO turma_disciplinas (turma_id, disciplina_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [turmaId, disciplinaId]
+      'INSERT INTO turma_disciplinas (turma_id, disciplina_id, aulas_semanais) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      [turmaId, disciplinaId, preservar.get(disciplinaId) ?? null]
     );
   }
 }

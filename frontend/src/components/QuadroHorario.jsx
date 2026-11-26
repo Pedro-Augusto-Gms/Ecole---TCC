@@ -37,7 +37,7 @@ export default function QuadroHorario({ horarios, estrutura }) {
                   return (
                     <td key={dia.numero}>
                       {aula ? (
-                        <div className={`aula aula-cor-${aula.disciplina_id % 6}`}>
+                        <div className={`aula aula-cor-${aula.disciplina_id % 6}`} title={aula.disciplina_completa || undefined}>
                           <strong>{aula.disciplina}</strong>
                           <span>{aula.professor}</span>
                         </div>

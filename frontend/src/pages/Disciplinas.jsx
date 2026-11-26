@@ -135,7 +135,7 @@ export default function Disciplinas() {
                 {filtradas.map((disciplina) => (
                   <tr key={disciplina.id}>
                     <td>
-                      <strong>{disciplina.nome}</strong>
+                      <strong title={disciplina.nome_completo || undefined}>{disciplina.nome}</strong>{disciplina.nome_completo && <small className="texto-suave"> {disciplina.nome_completo}</small>}
                     </td>
                     <td>
                       <span className="chip">{disciplina.aulas_semanais} aulas</span>

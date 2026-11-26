@@ -27,6 +27,22 @@ function unicosPorNome(lista) {
   });
 }
 
+// Converte o item lido pela IA em número de período (1 a 8).
+// Formulário da escola: 6 aulas na manhã e 6 na tarde, mas no dia real só valem
+//   manhã 1-6  -> períodos 1-6   (a 6ª da manhã é a 6ª aula, 12:30, das turmas de 6 aulas)
+//   tarde 1-3  -> períodos 6-8   (as 3 últimas aulas do dia); tarde 4-6 não existem e são ignoradas
+function periodoDoItem(item) {
+  if (item?.turno !== undefined && item?.turno !== null && item?.aula !== undefined) {
+    const turno = normalizar(item.turno);
+    const aula = Number(item.aula);
+    if (!Number.isInteger(aula) || aula < 1) return null;
+    if (turno.startsWith('manha')) return aula <= 6 ? aula : null;
+    if (turno.startsWith('tarde')) return aula <= 3 ? 5 + aula : null;
+    return null;
+  }
+  return Number(item?.periodo);
+}
+
 // Mantém só pares válidos (dia 1-5, período 1-MAX_PERIODOS) e sem repetição.
 function sanitizarDisponibilidade(lista) {
   if (!Array.isArray(lista)) return [];
@@ -34,7 +50,7 @@ function sanitizarDisponibilidade(lista) {
   const resultado = [];
   for (const item of lista) {
     const dia = Number(item?.dia_semana);
-    const periodo = Number(item?.periodo);
+    const periodo = periodoDoItem(item);
     if (!Number.isInteger(dia) || dia < 1 || dia > 5) continue;
     if (!Number.isInteger(periodo) || periodo < 1 || periodo > MAX_PERIODOS) continue;
     const chave = `${dia}-${periodo}`;
