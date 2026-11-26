@@ -11,7 +11,8 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Limite maior porque as fotos dos formulários chegam em base64 na importação por IA.
+app.use(express.json({ limit: '40mb' }));
 
 app.get('/api/saude', (req, res) => res.json({ status: 'ok', sistema: 'ÉCOLE' }));
 app.use('/api', rotas);

@@ -9,7 +9,7 @@ const { DIAS } = require('../config/horarios');
  *
  * Entrada:
  *  - disciplinas: [{ id, nome, aulas_semanais }]            disciplinas da turma
- *  - professores: [{ id, disciplinas: [ids], disponibilidade: [{ dia_semana, periodo }] }]
+ *  - professores: [{ id, pontuacao, disciplinas: [ids], disponibilidade: [{ dia_semana, periodo }] }]
  *  - ocupacaoExterna: [{ professor_id, dia_semana, periodo }] aulas já alocadas em OUTRAS turmas
  *  - periodosPorDia: número de períodos considerados por dia
  *
@@ -22,15 +22,20 @@ const { DIAS } = require('../config/horarios');
  *  2. O professor só é usado dentro da sua disponibilidade.
  *  3. O professor não pode estar em duas turmas no mesmo horário.
  *  4. Tenta distribuir as aulas de uma disciplina em dias diferentes.
+ *  5. Entre professores que podem dar a mesma disciplina, o de maior pontuação tem prioridade.
  */
 function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDia }) {
   const chave = (dia, periodo) => `${dia}-${periodo}`;
 
-  const professoresPreparados = professores.map((professor) => ({
-    id: professor.id,
-    disciplinas: professor.disciplinas,
-    disponibilidade: new Set(professor.disponibilidade.map((d) => chave(d.dia_semana, d.periodo))),
-  }));
+  // Professores com maior pontuação vêm primeiro: têm prioridade quando mais de um pode dar a mesma aula.
+  const professoresPreparados = professores
+    .map((professor) => ({
+      id: professor.id,
+      pontuacao: Number(professor.pontuacao) || 0,
+      disciplinas: professor.disciplinas,
+      disponibilidade: new Set(professor.disponibilidade.map((d) => chave(d.dia_semana, d.periodo))),
+    }))
+    .sort((a, b) => b.pontuacao - a.pontuacao);
 
   const professorOcupado = new Set(
     ocupacaoExterna.map((o) => `${o.professor_id}-${chave(o.dia_semana, o.periodo)}`)

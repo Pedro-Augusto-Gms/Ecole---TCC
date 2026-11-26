@@ -6,6 +6,7 @@ import Professores from './pages/Professores.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Disciplinas from './pages/Disciplinas.jsx';
 import Horarios from './pages/Horarios.jsx';
+import Importar from './pages/Importar.jsx';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/professores" element={<Professores />} />
         <Route path="/turmas" element={<Turmas />} />
         <Route path="/disciplinas" element={<Disciplinas />} />
+        <Route path="/importar" element={<Importar />} />
         <Route path="/horarios" element={<Horarios />} />
       </Route>
 

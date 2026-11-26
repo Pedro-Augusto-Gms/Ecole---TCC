@@ -6,7 +6,7 @@ import EstadoVazio from '../components/EstadoVazio.jsx';
 import GradeDisponibilidade from '../components/GradeDisponibilidade.jsx';
 import api, { mensagemErro } from '../services/api.js';
 
-const FORMULARIO_VAZIO = { nome: '', disciplinas: [], disponibilidade: [], informacoes_adicionais: '' };
+const FORMULARIO_VAZIO = { nome: '', pontuacao: '', disciplinas: [], disponibilidade: [], informacoes_adicionais: '' };
 
 export default function Professores() {
   const [professores, setProfessores] = useState([]);
@@ -52,6 +52,7 @@ export default function Professores() {
     setEditandoId(professor.id);
     setFormulario({
       nome: professor.nome,
+      pontuacao: professor.pontuacao ?? '',
       disciplinas: professor.disciplinas.map((d) => d.id),
       disponibilidade: professor.disponibilidade,
       informacoes_adicionais: professor.informacoes_adicionais || '',
@@ -130,6 +131,7 @@ export default function Professores() {
                 <tr>
                   <th>Professor</th>
                   <th>Disciplinas</th>
+                  <th>Pontuação</th>
                   <th>Horários disponíveis</th>
                   <th className="coluna-acoes">Ações</th>
                 </tr>
@@ -153,6 +155,7 @@ export default function Professores() {
                         </div>
                       )}
                     </td>
+                    <td>{Number(professor.pontuacao)}</td>
                     <td>{professor.disponibilidade.length} períodos</td>
                     <td className="coluna-acoes">
                       <button type="button" className="botao-icone" title="Visualizar" onClick={() => setProfessorVisualizado(professor)}>
@@ -178,16 +181,29 @@ export default function Professores() {
           <form onSubmit={salvar} noValidate>
             {erroFormulario && <div className="alerta alerta-erro">{erroFormulario}</div>}
 
-            <label className="campo">
-              <span>Nome completo</span>
-              <input
-                type="text"
-                value={formulario.nome}
-                onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })}
-                placeholder="Ex.: Maria da Silva"
-                autoFocus
-              />
-            </label>
+            <div className="linha-campos">
+              <label className="campo">
+                <span>Nome completo</span>
+                <input
+                  type="text"
+                  value={formulario.nome}
+                  onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })}
+                  placeholder="Ex.: Maria da Silva"
+                  autoFocus
+                />
+              </label>
+              <label className="campo">
+                <span>Pontuação</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formulario.pontuacao}
+                  onChange={(e) => setFormulario({ ...formulario, pontuacao: e.target.value })}
+                  placeholder="0"
+                />
+              </label>
+            </div>
 
             <div className="campo">
               <span>Disciplinas que leciona</span>
@@ -244,6 +260,8 @@ export default function Professores() {
       {professorVisualizado && (
         <Modal titulo={professorVisualizado.nome} aoFechar={() => setProfessorVisualizado(null)}>
           <dl className="detalhes">
+            <dt>Pontuação</dt>
+            <dd>{Number(professorVisualizado.pontuacao)}</dd>
             <dt>Disciplinas</dt>
             <dd>
               {professorVisualizado.disciplinas.length === 0 ? (

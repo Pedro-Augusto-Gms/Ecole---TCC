@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { FiGrid, FiUsers, FiLayers, FiBookOpen, FiCalendar, FiLogOut } from 'react-icons/fi';
+import { FiGrid, FiUsers, FiLayers, FiBookOpen, FiCalendar, FiLogOut, FiUpload } from 'react-icons/fi';
 import Logo from './Logo.jsx';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
@@ -8,6 +8,7 @@ const ITENS_MENU = [
   { para: '/professores', rotulo: 'Professores', icone: FiUsers },
   { para: '/turmas', rotulo: 'Turmas', icone: FiLayers },
   { para: '/disciplinas', rotulo: 'Disciplinas', icone: FiBookOpen },
+  { para: '/importar', rotulo: 'Importar (IA)', icone: FiUpload },
   { para: '/horarios', rotulo: 'Horários', icone: FiCalendar },
 ];
 

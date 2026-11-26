@@ -66,6 +66,22 @@ Se a sua logo tiver outro formato (ex.: `.svg`), ajuste o caminho em `frontend/s
 4. Cadastre as **turmas** e marque as disciplinas de cada uma.
 5. Em **Horários**, escolha a turma, os períodos por dia e clique em *Gerar horários*.
 
+## Importar formulários com IA (gratuito)
+
+Na tela **Importar (IA)** a gestão envia fotos, PDFs ou textos dos formulários dos professores. A IA lê nome, pontuação, disciplinas e disponibilidade, mostra uma **prévia editável** e só grava no banco depois que você confirma.
+
+1. Crie uma chave gratuita em https://aistudio.google.com/apikey (Gemini).
+2. No `backend/.env`, adicione (veja o `.env.example`):
+   ```
+   AI_PROVIDER=gemini
+   GEMINI_API_KEY=sua_chave
+   ```
+3. Reinicie a API. Se aparecer "Modelo não encontrado", defina `GEMINI_MODEL` com um modelo listado no Google AI Studio.
+
+Para usar a Claude no lugar (pago por uso): `AI_PROVIDER=claude` e `ANTHROPIC_API_KEY=...`.
+O texto das instruções enviado à IA fica em `backend/src/services/ia/prompt.js` e pode ser ajustado ao formato do formulário da escola.
+A **pontuação** do professor também pode ser editada na tela Professores e dá prioridade a ele na geração de horários.
+
 ## Onde evoluir o algoritmo (TCC)
 
 Toda a lógica de geração está isolada em `backend/src/services/geradorHorarios.js`.
@@ -83,6 +99,8 @@ O banco já impede conflitos: um professor não pode estar em duas turmas no mes
 | GET/POST/PUT/DELETE | `/api/disciplinas` | CRUD de disciplinas |
 | GET | `/api/horarios/turma/:id` | Horário salvo de uma turma |
 | POST | `/api/horarios/gerar` | Gera o horário de uma turma |
+| POST | `/api/importacao/ler` | IA lê os formulários e devolve uma prévia (não grava) |
+| POST | `/api/importacao/confirmar` | Grava a prévia confirmada |
 | DELETE | `/api/horarios/turma/:id` | Remove o horário de uma turma |
 
 Todas as rotas, exceto o login, exigem o cabeçalho `Authorization: Bearer <token>`.

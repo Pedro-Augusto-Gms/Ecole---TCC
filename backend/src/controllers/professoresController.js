@@ -22,11 +22,15 @@ function validar(corpo) {
   const erros = [];
   const nome = (corpo.nome || '').trim();
   const informacoes = (corpo.informacoes_adicionais || '').trim();
+  const pontuacaoInformada = corpo.pontuacao === undefined || corpo.pontuacao === null || corpo.pontuacao === '' ? 0 : Number(corpo.pontuacao);
   const disciplinas = Array.isArray(corpo.disciplinas) ? corpo.disciplinas.map(Number) : [];
   const disponibilidade = Array.isArray(corpo.disponibilidade) ? corpo.disponibilidade : [];
 
   if (nome.length < 3) erros.push('Informe o nome completo do professor.');
   if (disciplinas.some((id) => !Number.isInteger(id))) erros.push('Lista de disciplinas inválida.');
+  if (!Number.isFinite(pontuacaoInformada) || pontuacaoInformada < 0 || pontuacaoInformada > 99999) {
+    erros.push('A pontuação deve ser um número maior ou igual a zero.');
+  }
 
   const disponibilidadeValida = disponibilidade.every(
     (item) =>
@@ -35,7 +39,7 @@ function validar(corpo) {
   );
   if (!disponibilidadeValida) erros.push('Disponibilidade de horários inválida.');
 
-  return { erros, dados: { nome, informacoes, disciplinas, disponibilidade } };
+  return { erros, dados: { nome, informacoes, pontuacao: pontuacaoInformada, disciplinas, disponibilidade } };
 }
 
 async function salvarRelacionamentos(cliente, professorId, disciplinas, disponibilidade) {
@@ -74,8 +78,8 @@ exports.criar = async (req, res) => {
   try {
     const id = await db.transacao(async (cliente) => {
       const { rows } = await cliente.query(
-        'INSERT INTO professores (nome, informacoes_adicionais) VALUES ($1, $2) RETURNING id',
-        [dados.nome, dados.informacoes || null]
+        'INSERT INTO professores (nome, informacoes_adicionais, pontuacao) VALUES ($1, $2, $3) RETURNING id',
+        [dados.nome, dados.informacoes || null, dados.pontuacao]
       );
       await salvarRelacionamentos(cliente, rows[0].id, dados.disciplinas, dados.disponibilidade);
       return rows[0].id;
@@ -96,8 +100,8 @@ exports.atualizar = async (req, res) => {
   try {
     const encontrado = await db.transacao(async (cliente) => {
       const { rowCount } = await cliente.query(
-        'UPDATE professores SET nome = $1, informacoes_adicionais = $2 WHERE id = $3',
-        [dados.nome, dados.informacoes || null, req.params.id]
+        'UPDATE professores SET nome = $1, informacoes_adicionais = $2, pontuacao = $3 WHERE id = $4',
+        [dados.nome, dados.informacoes || null, dados.pontuacao, req.params.id]
       );
       if (!rowCount) return false;
       await salvarRelacionamentos(cliente, req.params.id, dados.disciplinas, dados.disponibilidade);

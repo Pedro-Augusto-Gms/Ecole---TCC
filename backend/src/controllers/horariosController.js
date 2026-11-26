@@ -44,7 +44,7 @@ exports.gerar = async (req, res) => {
   }
 
   const professores = await db.query(
-    `SELECT p.id,
+    `SELECT p.id, p.pontuacao,
             COALESCE((SELECT array_agg(disciplina_id) FROM professor_disciplinas WHERE professor_id = p.id), '{}'::int[]) AS disciplinas,
             COALESCE((SELECT json_agg(json_build_object('dia_semana', dia_semana, 'periodo', periodo))
                         FROM disponibilidades WHERE professor_id = p.id), '[]') AS disponibilidade

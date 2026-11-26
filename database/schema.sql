@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS atividades (
 -- Atualização de bancos criados com a versão anterior (6 períodos, sem aulas_por_dia).
 -- Em um banco novo estes comandos não mudam nada.
 -- ---------------------------------------------------------------------------
+-- Pontuação do professor: prioridade na escolha de aulas (maior = prioridade)
+ALTER TABLE professores ADD COLUMN IF NOT EXISTS pontuacao NUMERIC(7,2) NOT NULL DEFAULT 0;
+
 ALTER TABLE turmas ADD COLUMN IF NOT EXISTS aulas_por_dia SMALLINT NOT NULL DEFAULT 8;
 
 ALTER TABLE turmas DROP CONSTRAINT IF EXISTS turmas_aulas_por_dia_check;

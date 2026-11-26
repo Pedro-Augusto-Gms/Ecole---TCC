@@ -11,5 +11,6 @@ router.use('/professores', require('./professoresRoutes'));
 router.use('/turmas', require('./turmasRoutes'));
 router.use('/disciplinas', require('./disciplinasRoutes'));
 router.use('/horarios', require('./horariosRoutes'));
+router.use('/importacao', require('./importacaoRoutes'));
 
 module.exports = router;
