@@ -15,6 +15,7 @@ const { DIAS, intervaloDoPeriodo } = require('../config/horarios');
  *
  * Saída: { alocacoes: [{ dia_semana, periodo, disciplina_id, professor_id }], pendencias: [...], ajustes: [...] }
  *
+ * Matérias com 2+ aulas/semana ganham aulas seguidas (3 aulas = dupla + 1 em outro dia; 4 = duas duplas).
  * Duas fases: (1) só dentro da disponibilidade dos professores; (2) as aulas que sobraram são colocadas
  * no horário livre MAIS PRÓXIMO da disponibilidade do professor, e cada uma vira um aviso em "ajustes".
  *
@@ -80,36 +81,83 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
     }
   }
 
+  // Duas aulas são "seguidas" se a segunda começa quando a primeira termina (sem intervalo ou almoço no meio).
+  function seguidos(periodo) {
+    const a = intervaloDoPeriodo(periodosPorDia, periodo);
+    const b = intervaloDoPeriodo(periodosPorDia, periodo + 1);
+    return Boolean(a && b && a.fim === b.inicio);
+  }
+
+  // 2 aulas = 1 dupla; 3 = dupla + 1; 4 = 2 duplas; 5 = 2 duplas + 1... (1 aula por semana fica sozinha)
+  function blocosDaDisciplina(aulas) {
+    const blocos = Array(Math.floor(aulas / 2)).fill(2);
+    if (aulas % 2) blocos.push(1);
+    return blocos;
+  }
+
+  // Uma aula avulsa dentro da disponibilidade, preferindo um dia em que a matéria ainda não tenha aula.
+  function tentarAvulsa(disciplina, candidatos) {
+    const { aulasPorDia } = estado.get(disciplina.id);
+    let melhor = null;
+    for (const dia of DIAS) {
+      for (let periodo = 1; periodo <= periodosPorDia; periodo++) {
+        const slot = chave(dia.numero, periodo);
+        if (gradeTurma.has(slot)) continue;
+        const professor = candidatos.find(
+          (c) => c.disponibilidade.has(slot) && !professorOcupado.has(`${c.id}-${slot}`) && permitido(disciplina.id, c.id, dia.numero, periodo)
+        );
+        if (!professor) continue;
+        const carga = aulasPorDia[dia.numero] || 0;
+        if (!melhor || carga < melhor.carga) melhor = { dia: dia.numero, periodo, professor, carga };
+      }
+    }
+    if (!melhor) return false;
+    alocar(disciplina, melhor.professor, melhor.dia, melhor.periodo, false);
+    return true;
+  }
+
+  // Duas aulas seguidas, com o mesmo professor, no mesmo dia. `estrito`: ambas dentro da disponibilidade.
+  function tentarDupla(disciplina, candidatos, estrito) {
+    const estadoDisciplina = estado.get(disciplina.id);
+    let melhor = null;
+    for (const dia of DIAS) {
+      for (let periodo = 1; periodo < periodosPorDia; periodo++) {
+        if (!seguidos(periodo)) continue;
+        const slotA = chave(dia.numero, periodo);
+        const slotB = chave(dia.numero, periodo + 1);
+        if (gradeTurma.has(slotA) || gradeTurma.has(slotB)) continue;
+        for (const professor of candidatos) {
+          if (professorOcupado.has(`${professor.id}-${slotA}`) || professorOcupado.has(`${professor.id}-${slotB}`)) continue;
+          if (!permitido(disciplina.id, professor.id, dia.numero, periodo) || !permitido(disciplina.id, professor.id, dia.numero, periodo + 1)) continue;
+          if (estrito && !(professor.disponibilidade.has(slotA) && professor.disponibilidade.has(slotB))) continue;
+          const custo =
+            (estadoDisciplina.aulasPorDia[dia.numero] || 0) * 100 +
+            (estrito ? 0 : distancia(professor, dia.numero, periodo) + distancia(professor, dia.numero, periodo + 1)) +
+            periodo * 0.01;
+          if (!melhor || custo < melhor.custo) melhor = { dia: dia.numero, periodo, professor, custo };
+        }
+      }
+    }
+    if (!melhor) return false;
+    for (const periodo of [melhor.periodo, melhor.periodo + 1]) {
+      alocar(disciplina, melhor.professor, melhor.dia, periodo, !melhor.professor.disponibilidade.has(chave(melhor.dia, periodo)));
+    }
+    estadoDisciplina.temDupla = true;
+    return true;
+  }
+
   // Fase 1: só dentro da disponibilidade. Disciplinas com mais aulas primeiro (são as mais difíceis de encaixar).
   for (const disciplina of ordenadas) {
-    estado.set(disciplina.id, { aulasPorDia: {}, alocadas: 0 });
+    estado.set(disciplina.id, { aulasPorDia: {}, alocadas: 0, temDupla: false });
     const candidatos = professoresPreparados.filter((p) => p.disciplinas.includes(disciplina.id));
     if (candidatos.length === 0) continue;
 
-    for (let aula = 0; aula < disciplina.aulas_semanais; aula++) {
-      const { aulasPorDia } = estado.get(disciplina.id);
-      let melhorOpcao = null;
-
-      for (const dia of DIAS) {
-        for (let periodo = 1; periodo <= periodosPorDia; periodo++) {
-          const slot = chave(dia.numero, periodo);
-          if (gradeTurma.has(slot)) continue;
-
-          const professor = candidatos.find(
-            (c) =>
-              c.disponibilidade.has(slot) &&
-              !professorOcupado.has(`${c.id}-${slot}`) &&
-              permitido(disciplina.id, c.id, dia.numero, periodo)
-          );
-          if (!professor) continue;
-
-          const carga = aulasPorDia[dia.numero] || 0;
-          if (!melhorOpcao || carga < melhorOpcao.carga) melhorOpcao = { dia: dia.numero, periodo, professor, carga };
-        }
+    for (const bloco of blocosDaDisciplina(disciplina.aulas_semanais)) {
+      if (bloco === 2 && tentarDupla(disciplina, candidatos, true)) continue;
+      // Sem dupla possível (ou aula única): coloca avulsas
+      for (let i = 0; i < bloco; i++) {
+        if (!tentarAvulsa(disciplina, candidatos)) break;
       }
-
-      if (!melhorOpcao) break;
-      alocar(disciplina, melhorOpcao.professor, melhorOpcao.dia, melhorOpcao.periodo, false);
     }
   }
 
@@ -135,7 +183,8 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
     }
 
     while (estado.get(disciplina.id).alocadas < disciplina.aulas_semanais) {
-      const { aulasPorDia } = estado.get(disciplina.id);
+      const { aulasPorDia, alocadas, temDupla } = estado.get(disciplina.id);
+      if (!temDupla && disciplina.aulas_semanais - alocadas >= 2 && tentarDupla(disciplina, candidatos, false)) continue;
       let melhor = null;
 
       for (const dia of DIAS) {
@@ -152,7 +201,7 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
       }
 
       if (!melhor) break;
-      alocar(disciplina, melhor.professor, melhor.dia, melhor.periodo, true);
+      alocar(disciplina, melhor.professor, melhor.dia, melhor.periodo, !melhor.professor.disponibilidade.has(chave(melhor.dia, melhor.periodo)));
     }
 
     const faltando = disciplina.aulas_semanais - estado.get(disciplina.id).alocadas;
