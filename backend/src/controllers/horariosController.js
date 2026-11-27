@@ -1,7 +1,8 @@
 const db = require('../config/db');
 const { estruturaDoDia } = require('../config/horarios');
 const { gerarHorario } = require('../services/geradorHorarios');
-const { buscarHorarios } = require('../services/consultasHorarios');
+const { buscarHorarios, buscarTurmasParaExportacao } = require('../services/consultasHorarios');
+const { enviarExcelHorarios, slugArquivo } = require('../services/excelHorarios');
 const { validarRestricoes } = require('../services/restricoesService');
 const { consultarIA } = require('../services/ia');
 const { montarPromptAjuste } = require('../services/ia/promptAjuste');
@@ -226,4 +227,36 @@ exports.removerRestricao = async (req, res) => {
   await db.query('DELETE FROM restricoes WHERE id = $1', [req.params.id]);
   const dados = Number.isInteger(turmaId) ? await dadosDaTurma(turmaId) : null;
   res.json(dados || { removida: true });
+};
+
+exports.exportarExcelTurma = async (req, res) => {
+  const turmaId = Number(req.params.turmaId);
+  if (!Number.isInteger(turmaId)) return res.status(400).json({ mensagem: 'Turma inválida.' });
+
+  const visao = req.query.visao === 'publicado' ? 'publicado' : 'rascunho';
+  const turmasComHorarios = await buscarTurmasParaExportacao({ turmaId, visao });
+  if (turmasComHorarios.length === 0) {
+    return res.status(400).json({ mensagem: 'Não há aulas nesta visão para exportar.' });
+  }
+
+  const nomeTurma = turmasComHorarios[0].turma.nome;
+  await enviarExcelHorarios(res, {
+    titulo: `HORÁRIO · ${nomeTurma}`,
+    nomeArquivo: `horario-${slugArquivo(nomeTurma)}.xlsx`,
+    turmasComHorarios,
+  });
+};
+
+exports.exportarExcelGeral = async (req, res) => {
+  const visao = req.query.visao === 'publicado' ? 'publicado' : 'rascunho';
+  const turmasComHorarios = await buscarTurmasParaExportacao({ visao });
+  if (turmasComHorarios.length === 0) {
+    return res.status(400).json({ mensagem: 'Nenhuma turma possui horários para exportar.' });
+  }
+
+  await enviarExcelHorarios(res, {
+    titulo: 'HORÁRIO ESCOLAR',
+    nomeArquivo: 'horarios-escola.xlsx',
+    turmasComHorarios,
+  });
 };

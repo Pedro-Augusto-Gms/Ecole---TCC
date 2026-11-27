@@ -1,4 +1,6 @@
-// Ajudantes usados pelas telas de importação por IA.
+import api from '../services/api.js';
+
+// Ajudantes usados pelas telas de importação por IA e exportação de arquivos.
 export const TIPOS_ACEITOS = 'image/jpeg,image/png,image/webp,image/heic,application/pdf,text/plain';
 export const MAX_ARQUIVOS = 6;
 export const MAX_MB = 8;
@@ -45,5 +47,37 @@ export async function reduzirImagem(arquivo) {
     return blob ? new File([blob], `${arquivo.name.replace(/\.\w+$/, '')}.jpg`, { type: 'image/jpeg' }) : arquivo;
   } catch {
     return arquivo;
+  }
+}
+
+// Faz download de um arquivo vindo da API (com token JWT e tratamento de erro em Blob).
+export async function baixarArquivo(url, nomePadrao, params) {
+  try {
+    const resposta = await api.get(url, { params, responseType: 'blob' });
+    const disposicao = resposta.headers?.['content-disposition'] || '';
+    const match = disposicao.match(/filename="?([^"]+)"?/i);
+    const nome = match?.[1] || nomePadrao;
+
+    const href = URL.createObjectURL(resposta.data);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = nome;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(href);
+  } catch (erro) {
+    if (erro.response?.data instanceof Blob) {
+      try {
+        const texto = await erro.response.data.text();
+        const json = JSON.parse(texto);
+        if (json?.mensagem) {
+          erro.response.data = json;
+        }
+      } catch {
+        // segue com o erro padrão se não for JSON
+      }
+    }
+    throw erro;
   }
 }

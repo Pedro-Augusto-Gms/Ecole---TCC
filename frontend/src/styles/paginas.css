@@ -380,8 +380,30 @@
 }
 .quadro-rodape {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 14px;
+}
+.quadro-rodape-grupo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.publico-barra {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.publico-barra .publico-seletor {
+  flex: 1;
+  min-width: 220px;
+  margin-bottom: 0;
 }
 .chat-mensagens {
   display: flex;

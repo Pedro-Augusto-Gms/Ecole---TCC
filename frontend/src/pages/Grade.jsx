@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { FiCalendar, FiLogIn } from 'react-icons/fi';
+import { FiCalendar, FiLogIn, FiDownload } from 'react-icons/fi';
 import Logo from '../components/Logo.jsx';
 import QuadroHorario from '../components/QuadroHorario.jsx';
 import EstadoVazio from '../components/EstadoVazio.jsx';
 import api, { mensagemErro } from '../services/api.js';
+import { baixarArquivo } from '../utils/arquivos.js';
 
 // Página PÚBLICA para os alunos: só mostra as grades que a gestão já publicou. Não pede login.
 export default function Grade() {
@@ -12,6 +13,7 @@ export default function Grade() {
   const turmaId = parametros.get('turma') || '';
   const [turmas, setTurmas] = useState(null);
   const [grade, setGrade] = useState(null);
+  const [baixando, setBaixando] = useState('');
   const [erro, setErro] = useState('');
 
   useEffect(() => {
@@ -33,6 +35,22 @@ export default function Grade() {
       .then(({ data }) => setGrade(data))
       .catch((e) => setErro(mensagemErro(e)));
   }, [turmaId]);
+
+  const baixarExcel = async (tipo) => {
+    setErro('');
+    setBaixando(tipo);
+    try {
+      if (tipo === 'turma') {
+        await baixarArquivo(`/publico/grade/${turmaId}/excel`, 'horario-turma.xlsx');
+      } else {
+        await baixarArquivo('/publico/excel', 'horarios-escola.xlsx');
+      }
+    } catch (e) {
+      setErro(mensagemErro(e));
+    } finally {
+      setBaixando('');
+    }
+  };
 
   return (
     <div className="publico">
@@ -57,16 +75,39 @@ export default function Grade() {
 
         {turmas && turmas.length > 0 && (
           <div className="cartao">
-            <label className="campo publico-seletor">
-              <span>Turma</span>
-              <select value={turmaId} onChange={(e) => setParametros({ turma: e.target.value })}>
-                {turmas.map((turma) => (
-                  <option key={turma.id} value={turma.id}>
-                    {turma.nome} — {turma.turno}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="publico-barra">
+              <label className="campo publico-seletor">
+                <span>Turma</span>
+                <select value={turmaId} onChange={(e) => setParametros({ turma: e.target.value })}>
+                  {turmas.map((turma) => (
+                    <option key={turma.id} value={turma.id}>
+                      {turma.nome} — {turma.turno}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="quadro-rodape-grupo">
+                {grade?.horarios?.length > 0 && (
+                  <button
+                    type="button"
+                    className="botao botao-secundario"
+                    onClick={() => baixarExcel('turma')}
+                    disabled={baixando !== ''}
+                  >
+                    <FiDownload size={16} /> {baixando === 'turma' ? 'Baixando...' : 'Baixar Excel (turma)'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="botao botao-secundario"
+                  onClick={() => baixarExcel('geral')}
+                  disabled={baixando !== ''}
+                >
+                  <FiDownload size={16} /> {baixando === 'geral' ? 'Baixando...' : 'Baixar Excel (todas)'}
+                </button>
+              </div>
+            </div>
 
             {grade ? (
               grade.horarios.length > 0 ? (

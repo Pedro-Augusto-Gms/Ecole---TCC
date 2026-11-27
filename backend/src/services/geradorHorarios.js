@@ -37,9 +37,22 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
 
   const professorOcupado = new Set(ocupacaoExterna.map((o) => `${o.professor_id}-${chave(o.dia_semana, o.periodo)}`));
   const gradeTurma = new Set();
+  const totalAulasDia = {};
   const alocacoes = [];
   const pendencias = [];
   const ajustes = [];
+
+  function temEvitarDiasSeguidos(disciplinaId, professorId) {
+    return restricoes.some((regra) => {
+      if (regra.disciplina_id && regra.disciplina_id !== disciplinaId) return false;
+      if (regra.professor_id && regra.professor_id !== professorId) return false;
+      return Boolean(regra.evitar_dias_seguidos);
+    });
+  }
+
+  function contarDiasAdjacentes(aulasPorDia, dia) {
+    return (aulasPorDia[dia - 1] ? 1 : 0) + (aulasPorDia[dia + 1] ? 1 : 0);
+  }
 
   // A aula respeita todas as regras da gestão que se aplicam a ela?
   function permitido(disciplinaId, professorId, dia, periodo) {
@@ -68,6 +81,7 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
     gradeTurma.add(slot);
     professorOcupado.add(`${professor.id}-${slot}`);
     situacao.aulasPorDia[dia] = (situacao.aulasPorDia[dia] || 0) + 1;
+    totalAulasDia[dia] = (totalAulasDia[dia] || 0) + 1;
     situacao.alocadas++;
     alocacoes.push({ dia_semana: dia, periodo, disciplina_id: disciplina.id, professor_id: professor.id });
     if (foraDaDisponibilidade) {
@@ -95,7 +109,7 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
     return blocos;
   }
 
-  // Uma aula avulsa dentro da disponibilidade, preferindo um dia em que a matéria ainda não tenha aula.
+  // Uma aula avulsa dentro da disponibilidade, evitando repetir dia ou colocar em dias seguidos e equilibrando os dias.
   function tentarAvulsa(disciplina, candidatos) {
     const { aulasPorDia } = estado.get(disciplina.id);
     let melhor = null;
@@ -103,12 +117,17 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
       for (let periodo = 1; periodo <= periodosPorDia; periodo++) {
         const slot = chave(dia.numero, periodo);
         if (gradeTurma.has(slot)) continue;
-        const professor = candidatos.find(
+        const idxProfessor = candidatos.findIndex(
           (c) => c.disponibilidade.has(slot) && !professorOcupado.has(`${c.id}-${slot}`) && permitido(disciplina.id, c.id, dia.numero, periodo)
         );
-        if (!professor) continue;
-        const carga = aulasPorDia[dia.numero] || 0;
-        if (!melhor || carga < melhor.carga) melhor = { dia: dia.numero, periodo, professor, carga };
+        if (idxProfessor === -1) continue;
+        const professor = candidatos[idxProfessor];
+        const aulasNoDia = aulasPorDia[dia.numero] || 0;
+        const adjacentes = contarDiasAdjacentes(aulasPorDia, dia.numero);
+        const cargaDia = totalAulasDia[dia.numero] || 0;
+        const pesoAdjacente = temEvitarDiasSeguidos(disciplina.id, professor.id) ? 500 : 50;
+        const custo = aulasNoDia * 1000 + adjacentes * pesoAdjacente + cargaDia * 2 + periodo * 0.05 + idxProfessor * 0.001;
+        if (!melhor || custo < melhor.custo) melhor = { dia: dia.numero, periodo, professor, custo };
       }
     }
     if (!melhor) return false;
@@ -126,14 +145,24 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
         const slotA = chave(dia.numero, periodo);
         const slotB = chave(dia.numero, periodo + 1);
         if (gradeTurma.has(slotA) || gradeTurma.has(slotB)) continue;
-        for (const professor of candidatos) {
+        for (let idxProfessor = 0; idxProfessor < candidatos.length; idxProfessor++) {
+          const professor = candidatos[idxProfessor];
           if (professorOcupado.has(`${professor.id}-${slotA}`) || professorOcupado.has(`${professor.id}-${slotB}`)) continue;
           if (!permitido(disciplina.id, professor.id, dia.numero, periodo) || !permitido(disciplina.id, professor.id, dia.numero, periodo + 1)) continue;
           if (estrito && !(professor.disponibilidade.has(slotA) && professor.disponibilidade.has(slotB))) continue;
-          const custo =
-            (estadoDisciplina.aulasPorDia[dia.numero] || 0) * 100 +
-            (estrito ? 0 : distancia(professor, dia.numero, periodo) + distancia(professor, dia.numero, periodo + 1)) +
-            periodo * 0.01;
+          const aulasNoDia = estadoDisciplina.aulasPorDia[dia.numero] || 0;
+          const adjacentes = contarDiasAdjacentes(estadoDisciplina.aulasPorDia, dia.numero);
+          const cargaDia = totalAulasDia[dia.numero] || 0;
+          const evitarSeguidos = temEvitarDiasSeguidos(disciplina.id, professor.id);
+          const custo = estrito
+            ? aulasNoDia * 1000 + adjacentes * (evitarSeguidos ? 500 : 50) + cargaDia * 2 + periodo * 0.05 + idxProfessor * 0.001
+            : aulasNoDia * 100 +
+              adjacentes * (evitarSeguidos ? 30 : 4) +
+              cargaDia * 0.5 +
+              distancia(professor, dia.numero, periodo) +
+              distancia(professor, dia.numero, periodo + 1) +
+              periodo * 0.01 +
+              idxProfessor * 0.001;
           if (!melhor || custo < melhor.custo) melhor = { dia: dia.numero, periodo, professor, custo };
         }
       }
@@ -191,10 +220,21 @@ function gerarHorario({ disciplinas, professores, ocupacaoExterna, periodosPorDi
         for (let periodo = 1; periodo <= periodosPorDia; periodo++) {
           const slot = chave(dia.numero, periodo);
           if (gradeTurma.has(slot)) continue;
-          for (const professor of candidatos) {
+          for (let idxProfessor = 0; idxProfessor < candidatos.length; idxProfessor++) {
+            const professor = candidatos[idxProfessor];
             if (professorOcupado.has(`${professor.id}-${slot}`)) continue;
             if (!permitido(disciplina.id, professor.id, dia.numero, periodo)) continue;
-            const custo = distancia(professor, dia.numero, periodo) + (aulasPorDia[dia.numero] || 0) * 0.5;
+            const aulasNoDia = aulasPorDia[dia.numero] || 0;
+            const adjacentes = contarDiasAdjacentes(aulasPorDia, dia.numero);
+            const cargaDia = totalAulasDia[dia.numero] || 0;
+            const pesoAdjacente = temEvitarDiasSeguidos(disciplina.id, professor.id) ? 30 : 4;
+            const custo =
+              distancia(professor, dia.numero, periodo) +
+              aulasNoDia * 100 +
+              adjacentes * pesoAdjacente +
+              cargaDia * 0.5 +
+              periodo * 0.01 +
+              idxProfessor * 0.001;
             if (!melhor || custo < melhor.custo) melhor = { dia: dia.numero, periodo, professor, custo };
           }
         }

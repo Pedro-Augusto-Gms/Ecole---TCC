@@ -2,7 +2,9 @@ const router = require('express').Router();
 const controlador = require('../controllers/horariosController');
 const asyncHandler = require('../utils/asyncHandler');
 
+router.get('/excel', asyncHandler(controlador.exportarExcelGeral));
 router.get('/turma/:turmaId', asyncHandler(controlador.listarPorTurma));
+router.get('/turma/:turmaId/excel', asyncHandler(controlador.exportarExcelTurma));
 router.post('/gerar', asyncHandler(controlador.gerar));
 router.post('/publicar', asyncHandler(controlador.publicar));
 router.post('/ajustar', asyncHandler(controlador.ajustar));

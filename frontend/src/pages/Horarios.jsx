@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { FiZap, FiCheckCircle, FiTrash2, FiAlertTriangle, FiCalendar, FiSend, FiX, FiCopy, FiCpu } from 'react-icons/fi';
+import { FiZap, FiCheckCircle, FiTrash2, FiAlertTriangle, FiCalendar, FiSend, FiX, FiCopy, FiCpu, FiDownload } from 'react-icons/fi';
 import PageHeader from '../components/PageHeader.jsx';
 import QuadroHorario from '../components/QuadroHorario.jsx';
 import EstadoVazio from '../components/EstadoVazio.jsx';
 import api, { mensagemErro } from '../services/api.js';
+import { baixarArquivo } from '../utils/arquivos.js';
 
 export default function Horarios() {
   const [turmas, setTurmas] = useState([]);
@@ -128,6 +129,16 @@ export default function Horarios() {
     navigator.clipboard?.writeText(linkAlunos).then(() => setSucesso('Link copiado!'));
   };
 
+  const baixarExcelTurma = () =>
+    executar('excel-turma', () =>
+      baixarArquivo(`/horarios/turma/${turmaId}/excel`, 'horario-turma.xlsx', { visao })
+    );
+
+  const baixarExcelGeral = () =>
+    executar('excel-geral', () =>
+      baixarArquivo('/horarios/excel', 'horarios-escola.xlsx', { visao })
+    );
+
   const temRascunho = (dados?.rascunho.length || 0) > 0;
   const temPublicado = (dados?.publicado.length || 0) > 0;
   const horariosVisiveis = visao === 'rascunho' ? dados?.rascunho || [] : dados?.publicado || [];
@@ -241,18 +252,30 @@ export default function Horarios() {
           <QuadroHorario horarios={horariosVisiveis} estrutura={dados.estrutura} />
         )}
 
-        {dados && (temRascunho || temPublicado) && (
+        {dados && (temRascunho || temPublicado || turmas.length > 0) && (
           <div className="quadro-rodape">
-            {visao === 'rascunho' && temRascunho && (
-              <button type="button" className="botao botao-secundario" onClick={descartar} disabled={ocupado !== ''}>
-                <FiTrash2 size={16} /> Descartar rascunho
+            <div className="quadro-rodape-grupo">
+              {horariosVisiveis.length > 0 && (
+                <button type="button" className="botao botao-secundario" onClick={baixarExcelTurma} disabled={ocupado !== ''}>
+                  <FiDownload size={16} /> {ocupado === 'excel-turma' ? 'Baixando...' : 'Baixar Excel (turma)'}
+                </button>
+              )}
+              <button type="button" className="botao botao-secundario" onClick={baixarExcelGeral} disabled={ocupado !== ''}>
+                <FiDownload size={16} /> {ocupado === 'excel-geral' ? 'Baixando...' : 'Baixar Excel (todas as turmas)'}
               </button>
-            )}
-            {visao === 'publicado' && temPublicado && (
-              <button type="button" className="botao botao-secundario" onClick={despublicar} disabled={ocupado !== ''}>
-                <FiTrash2 size={16} /> Remover grade oficial
-              </button>
-            )}
+            </div>
+            <div className="quadro-rodape-grupo">
+              {visao === 'rascunho' && temRascunho && (
+                <button type="button" className="botao botao-secundario" onClick={descartar} disabled={ocupado !== ''}>
+                  <FiTrash2 size={16} /> Descartar rascunho
+                </button>
+              )}
+              {visao === 'publicado' && temPublicado && (
+                <button type="button" className="botao botao-secundario" onClick={despublicar} disabled={ocupado !== ''}>
+                  <FiTrash2 size={16} /> Remover grade oficial
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

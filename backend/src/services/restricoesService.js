@@ -88,9 +88,19 @@ function validarRestricoes(bruto, contexto) {
     const proibidos = lerDias(item?.dias_proibidos);
     if (permitidos) regra.dias_permitidos = permitidos;
     if (proibidos) regra.dias_proibidos = proibidos;
+    if (item?.evitar_dias_seguidos === true) {
+      regra.evitar_dias_seguidos = true;
+      partes.push('evitar dias seguidos');
+    }
 
-    if (regra.depois_de === undefined && regra.antes_de === undefined && !permitidos && !proibidos) {
-      avisos.push('Uma regra sem condição de horário ou dia foi ignorada.');
+    if (
+      regra.depois_de === undefined &&
+      regra.antes_de === undefined &&
+      !permitidos &&
+      !proibidos &&
+      !regra.evitar_dias_seguidos
+    ) {
+      avisos.push('Uma regra sem condição de horário, dia ou espaçamento foi ignorada.');
       continue;
     }
 
